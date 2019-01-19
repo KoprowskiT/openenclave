@@ -10,6 +10,14 @@ else()
   set(ARCH "aarch64")
 endif()
 
+# NOTE: MUSL is NOT built by the `ExternalProject_Add` command. These
+# C flags only apply to a configuration step that generates the MUSL
+# headers. These headers are then turned into an interface library
+# `oelibc_includes` below, which compilation options can be applied to
+# in order to e.g. ignore warnings.
+#
+# The build command here is just a set of copy instructions to setup
+# `oelibc_includes`. See that CMake target for compile options.
 set(MUSL_CFLAGS "-fPIC -DSYSCALL_NO_INLINE")
 set(MUSL_CC ${CMAKE_C_COMPILER})
 set(MUSL_CXX ${CMAKE_CXX_COMPILER})
@@ -98,6 +106,14 @@ target_include_directories(oelibc_includes
   SYSTEM INTERFACE
   $<BUILD_INTERFACE:${MUSL_INCLUDES}>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/openenclave/3rdparty/libc>)
+
+if (CMAKE_C_COMPILER_ID MATCHES GNU)
+  # NOTE: This disables a warning that is only present with newer
+  # versions of GCC on Ubuntu 18.04. However, older versions of GCC
+  # don't care if we disable a warning they don't know about. When
+  # MUSL is updated, we should test if this is still required.
+  target_compile_options(oelibc_includes INTERFACE -Wno-implicit-fallthrough)
+endif ()
 
 install(TARGETS oelibc_includes EXPORT openenclave-targets)
 
